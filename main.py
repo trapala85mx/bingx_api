@@ -1,23 +1,26 @@
 import asyncio
 
-from examples.baisc_usage import client_creation
-from src.api.client import Perpetual
-
-
-async def server_time_ex(client: Perpetual):
-    server_timestamp = await client.server_timestamp()
-    print(f"Timestamp del servidor: {server_timestamp}")
-
-
-async def all_contracts_ex(client: Perpetual):
-    contracts_data = await client.contracts()
-    print(contracts_data)
+from examples.baisc_usage import (
+    client_creation,
+    get_klines,
+)
+from src.exceptions.api_exceptions import ApiException
+from src.utils.const import Intervals
 
 
 async def main():
-    client = await client_creation()
-    # await server_time_ex(client)
-    await all_contracts_ex(client)
+    try:
+        client = await client_creation()
+        # await server_time_ex(client)
+        # await all_contracts_ex(client)
+        await get_klines(
+            client=client, symbol="BTC-USDT", interval=Intervals.KLINE_4_HOUR
+        )
+
+    except ApiException as e:
+        print(f"{'*' * 50}")
+        print(e)
+        print(f"{'*' * 50}")
 
 
 if __name__ == "__main__":
