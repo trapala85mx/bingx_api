@@ -12,7 +12,7 @@ class Perpetual:
     BASE_URL = Endpoints.BASE_URL
 
     def __init__(
-        self, api_key: Optional[str] = None, secret: Optional[str] = None
+            self, api_key: Optional[str] = None, secret: Optional[str] = None
     ) -> None:
         self.api_key = api_key
         self.secret_key = secret
@@ -45,4 +45,38 @@ class Perpetual:
 
         return response["data"]["serverTime"]
 
-    async def _get_body_data(self, params: Dict[str, Any]) -> Dict[str, Any]: ...
+    async def contracts(self, symbol: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Arma lo neceasrio para realizar la petición al endpoint para traer la información de los contratos
+        Args:
+            symbol (Optional[Dict[str,Any]]): Ticker symbol del activo del cual se quiere obtener la info. Default. None
+
+        Returns:
+            Dict[str,Any]: Respuesta del Servidor.
+        """
+        endpoint = Endpoints.CONTRACTS
+        method = HttpMethod.GET
+        url = f"{Perpetual.BASE_URL}{endpoint}"
+        signed = False
+
+        params = None
+        data = None
+
+        if symbol:
+            if len(symbol) > 0:
+                params["symbol"] = symbol
+
+        request_data = RequestModel(
+            method=method,
+            url=url,
+            params=params if params else {},
+            data=data if data else {},
+            login=signed,
+        )
+
+        response = await self.http_manager.make_request(request_data=request_data)
+        await self.http_manager.close()
+        return response
+
+    async def _get_body_data(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        ...

@@ -40,7 +40,7 @@ class HttpManager:
                     raise ValueError(
                         f"API Error: {response.status} - {await response.text()}"
                     )
-                await self.close()
+
                 return await response.json()
 
         except HttpException as err:
