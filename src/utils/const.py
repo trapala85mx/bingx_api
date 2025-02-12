@@ -4,12 +4,13 @@ from enum import StrEnum
 class Endpoints(StrEnum):
     """Constantes para las urls / endpoints de Bingx"""
 
-    BASE_URL = "https://open-api.bingx.com"
     ACCOUNT = "/openApi/swap/v3/user/balance"
+    BASE_URL = "https://open-api.bingx.com"
     CONTRACTS = "/openApi/swap/v2/quote/contracts"
     KLINES = "/openApi/swap/v3/quote/klines"
     PLACE_ORDER = "/openApi/swap/v2/trade/order"
     QUERY_MARGIN_TYPE = "/openApi/swap/v2/trade/marginType"
+    SERVER_TIMESTAMP = "/openApi/swap/v2/server/time"
 
 
 class Intervals(StrEnum):
@@ -22,6 +23,12 @@ class Intervals(StrEnum):
     KLINE_1_DAY = "1d"
     KLINE_1_MONT = "1M"
     KLINE_1_WEEK = "1w"
+
+
+class HttpMethod(StrEnum):
+    """Constantes de métodos HTTP"""
+    GET = "GET"
+    POST = "POST"
 
 
 class OrderType(StrEnum):
