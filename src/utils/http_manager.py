@@ -4,7 +4,7 @@ y elevar errroes HTTP si corresponde
 """
 
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import aiohttp
 
@@ -18,7 +18,9 @@ class HttpManager:
         self.session = None
         self.logger = logging.getLogger(__name__)
 
-    async def make_request(self, request_data: RequestModel) -> Dict[str, Any]:
+    async def make_request(
+            self, request_data: RequestModel, headers: Optional[Dict[str, Any]] = {}
+    ) -> Dict[str, Any]:
         """
         Se encarga de hacer la petición.
         Args:
@@ -34,6 +36,7 @@ class HttpManager:
                     url=request_data.url,
                     params=request_data.params,
                     json=request_data.data,
+                    headers=headers,
             ) as response:
                 await self._verify_response(response)
                 if response.status != 200:

@@ -1,4 +1,8 @@
+import hmac
 import logging
+import time
+import urllib
+from hashlib import sha256
 from typing import Any, Dict, Optional
 
 import pydantic_core
@@ -118,5 +122,59 @@ class Perpetual:
             self.logger.debug("Error al crear el RequestModel: %s", str(err))
             raise ApiException(str(err)) from err
 
-    async def _get_body_data(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        ...
+    async def account_data(self) -> Dict[str, Any]:
+        method = HttpMethod.GET
+        path = Endpoints.ACCOUNT
+        signed = True
+        data = None
+        params = None
+        url = f"{Perpetual.BASE_URL}{path}"
+
+        params = await self._get_body_data()
+
+        try:
+            request_data = RequestModel(
+                method=method,
+                login=signed,
+                url=url,
+                params=params if params else {},
+                data=data if data else {},
+            )
+
+            self.headers.update({"Content-Type": "application/json"})
+            response = await self.http_manager.make_request(request_data, self.headers)
+
+            await self.http_manager.close()
+            return response
+
+        except pydantic_core.ValidationError as e:
+            self.logger.debug("Error al crear el RequestModel: %s", str(e))
+            raise ApiException(str(e)) from e
+
+    async def _get_body_data(
+            self, params: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        params = params if params else {}
+        params["timestamp"] = str(self.get_timestamp())
+        signature = self._get_sign(self._params_str(params))
+        params["signature"] = signature
+        return params
+
+    def _get_sign(self, params_str: str):
+        signature = hmac.new(
+            self.secret_key.encode("utf-8"),
+            params_str.encode("utf-8"),
+            digestmod=sha256,
+        ).hexdigest()
+        return signature
+
+    def get_timestamp(self) -> int:
+        return int(time.time() * 1_000)
+
+    def _params_str(self, params: Dict[str, Any]) -> str:
+        # Ordenar los parámetros para la firma
+        sorted_params = dict(sorted(params.items()))
+        params_str = urllib.parse.urlencode(
+            sorted_params, safe='{}":,'
+        )  # Mantener los caracteres de JSON seguros
+        return params_str

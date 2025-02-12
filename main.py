@@ -1,21 +1,22 @@
 import asyncio
 
 from examples.baisc_usage import (
+    account_data,
     client_creation,
-    get_klines,
 )
 from src.exceptions.api_exceptions import ApiException
-from src.utils.const import Intervals
 
 
 async def main():
     try:
+
         client = await client_creation()
         # await server_time_ex(client)
         # await all_contracts_ex(client)
-        await get_klines(
-            client=client, symbol="BTC-USDT", interval=Intervals.KLINE_4_HOUR
-        )
+        # await get_klines(
+        #    client=client, symbol="BTC-USDT", interval=Intervals.KLINE_4_HOUR
+        # )
+        await account_data(client=client)
 
     except ApiException as e:
         print(f"{'*' * 50}")
