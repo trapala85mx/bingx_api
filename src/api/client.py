@@ -1,8 +1,4 @@
-import hmac
 import logging
-import time
-import urllib
-from hashlib import sha256
 from typing import Any, Dict, Optional
 
 import aiohttp.http
@@ -11,6 +7,7 @@ import pydantic_core
 from src.exceptions.api_exceptions import ApiException
 from src.exceptions.http_exceptions import HttpException
 from src.models.request_model import RequestModel
+from src.utils.auth import get_sign, params_str
 from src.utils.const import Endpoints, HttpMethod
 from src.utils.http_manager import HttpManager
 
@@ -239,57 +236,6 @@ class Perpetual:
             self.logger.debug("Error al crear el RequestModel: %s", str(e))
             raise ApiException(str(e)) from e
 
-    async def _get_sign(self, params_str: str) -> str:
-        """
-        Crea la singature de los peticiones que necesitan auth.
-        Args:
-            params_str (str): Query string a enviar en la URL.
-
-        Returns:
-            (str): Cadena de texto de la signature.
-
-        Raises:
-            ApiException: Error dentro de la API.
-        """
-        signature = hmac.new(
-            self.secret_key.encode("utf-8"),
-            params_str.encode("utf-8"),
-            digestmod=sha256,
-        ).hexdigest()
-        return signature
-
-    async def _params_str(self, params: Dict[str, Any]) -> str:
-        """
-        Convierte los parámetros en query string.
-        Args:
-            params (Dict[str, Any]): Parámetros de la petición.
-
-        Returns:
-            (str): Parámetros en cadena texto url encodeados.
-
-        Raises:
-            ApiException: Error dentro de la API.
-        """
-        params["timestamp"] = str(self.get_timestamp())
-        # Ordenar los parámetros para la firma
-        sorted_params = dict(sorted(params.items()))
-        params_str = urllib.parse.urlencode(
-            sorted_params, safe='{}":,'
-        )  # Mantener los caracteres de JSON seguros
-        return params_str
-
-    def get_timestamp(self) -> int:
-        """
-        Obtiene el timestamp actual.
-
-        Returns:
-            (int): Entero que representa el timestamp.
-
-        Raises:
-            ApiException: Error dentro de la API.
-        """
-        return int(time.time() * 1_000)
-
     async def _make_request(
             self,
             request_data: RequestModel,
@@ -329,10 +275,10 @@ class Perpetual:
         # Revisar si viene params
         params = request_data.params if request_data.params else {}
         # Pasamos a query string los parámetros
-        query_string = await self._params_str(params=params)
+        query_string = await params_str(params=params)
         # Creamos la url completa tomando en cuenta si se necesita o no login
         if request_data.login:
-            url = f"{request_data.url}?{query_string}&signature={await self._get_sign(query_string)}"
+            url = f"{request_data.url}?{query_string}&signature={await get_sign(query_string, self.secret_key)}"
         else:
             url = f"{request_data.url}?{query_string}"
 
