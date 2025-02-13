@@ -7,6 +7,7 @@ class Endpoints(StrEnum):
     ACCOUNT = "/openApi/swap/v3/user/balance"
     BASE_URL = "https://open-api.bingx.com"
     CONTRACTS = "/openApi/swap/v2/quote/contracts"
+    CHANGE_MARGIN_TYPE = "/openApi/swap/v2/trade/marginType"
     KLINES = "/openApi/swap/v3/quote/klines"
     PLACE_ORDER = "/openApi/swap/v2/trade/order"
     QUERY_MARGIN_TYPE = "/openApi/swap/v2/trade/marginType"
@@ -27,6 +28,7 @@ class Intervals(StrEnum):
 
 class HttpMethod(StrEnum):
     """Constantes de métodos HTTP"""
+
     GET = "GET"
     POST = "POST"
 

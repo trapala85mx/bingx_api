@@ -19,7 +19,7 @@ class HttpManager:
         self.logger = logging.getLogger(__name__)
 
     async def make_request(
-            self, request_data: RequestModel, headers: Optional[Dict[str, Any]] = {}
+        self, request_data: RequestModel, headers: Optional[Dict[str, Any]] = {}
     ) -> Dict[str, Any]:
         """
         Se encarga de hacer la petición.
@@ -32,11 +32,11 @@ class HttpManager:
         try:
             session = await self._get_session()
             async with session.request(
-                    method=request_data.method,
-                    url=request_data.url,
-                    params=request_data.params,
-                    json=request_data.data,
-                    headers=headers,
+                method=request_data.method,
+                url=request_data.url,
+                params=request_data.params,
+                json=request_data.data,
+                headers=headers,
             ) as response:
                 await self._verify_response(response)
                 if response.status != 200:
@@ -60,7 +60,7 @@ class HttpManager:
         return self.session
 
     async def _verify_response(
-            self, response: aiohttp.ClientResponse
+        self, response: aiohttp.ClientResponse
     ) -> aiohttp.ClientResponse:
         """
         Verifica el status code de la respuesta.

@@ -5,6 +5,7 @@ import urllib
 from hashlib import sha256
 from typing import Any, Dict, Optional
 
+import aiohttp.http
 import pydantic_core
 
 from src.exceptions.api_exceptions import ApiException
@@ -23,9 +24,13 @@ class Perpetual:
     ) -> None:
         self.api_key = api_key
         self.secret_key = secret
+        self.session = aiohttp.ClientSession()
         self.headers = {"X-BX-APIKEY": self.api_key}
         self.http_manager = HttpManager()
         self.logger = logging.getLogger(__name__)
+
+    async def close(self):
+        await self.session.close()
 
     async def server_timestamp(self) -> int:
         """
@@ -36,9 +41,9 @@ class Perpetual:
         method = HttpMethod.GET
         url = f"{Perpetual.BASE_URL}{endpoint}"
         signed = False
-
         params = None
         data = None
+
         try:
             request_data = RequestModel(
                 method=method,
@@ -48,8 +53,8 @@ class Perpetual:
                 login=signed,
             )
 
-            response = await self.http_manager.make_request(request_data=request_data)
-            await self.http_manager.close()
+            response = await self._make_request(request_data=request_data)
+
             return response["data"]["serverTime"]
 
         except pydantic_core.ValidationError as err:
@@ -68,7 +73,6 @@ class Perpetual:
         method = HttpMethod.GET
         url = f"{Perpetual.BASE_URL}{endpoint}"
         signed = False
-
         params = None
         data = None
 
@@ -84,8 +88,8 @@ class Perpetual:
                 login=signed,
             )
 
-            response = await self.http_manager.make_request(request_data=request_data)
-            await self.http_manager.close()
+            response = await self._make_request(request_data=request_data)
+
             return response
         except pydantic_core.ValidationError as err:
             self.logger.debug("Error al crear el RequestModel: %s", str(err))
@@ -115,8 +119,8 @@ class Perpetual:
                 login=signed,
             )
 
-            response = await self.http_manager.make_request(request_data=request_data)
-            await self.http_manager.close()
+            response = await self._make_request(request_data=request_data)
+
             return response
         except pydantic_core.ValidationError as err:
             self.logger.debug("Error al crear el RequestModel: %s", str(err))
@@ -130,7 +134,31 @@ class Perpetual:
         params = None
         url = f"{Perpetual.BASE_URL}{path}"
 
-        params = await self._get_body_data()
+        try:
+            request_data = RequestModel(
+                method=method,
+                login=signed,
+                url=url,
+                params=params if params else {},
+                data=data if data else {},
+            )
+
+            response = await self._make_request(request_data)
+            await self.http_manager.close()
+
+            return response
+
+        except pydantic_core.ValidationError as e:
+            self.logger.debug("Error al crear el RequestModel: %s", str(e))
+            raise ApiException(str(e)) from e
+
+    async def query_margin_type(self, symbol: str) -> Dict[str, Any]:
+        path = Endpoints.QUERY_MARGIN_TYPE
+        method = HttpMethod.GET
+        signed = True
+        url = f"{Perpetual.BASE_URL}{path}"
+        data = None
+        params = {"symbol": symbol}
 
         try:
             request_data = RequestModel(
@@ -141,10 +169,33 @@ class Perpetual:
                 data=data if data else {},
             )
 
-            self.headers.update({"Content-Type": "application/json"})
-            response = await self.http_manager.make_request(request_data, self.headers)
+            response = await self._make_request(request_data)
 
-            await self.http_manager.close()
+            return response
+
+        except pydantic_core.ValidationError as e:
+            self.logger.debug("Error al crear el RequestModel: %s", str(e))
+            raise ApiException(str(e)) from e
+
+    async def change_margin_type(self, symbol: str, margin_type: str) -> Dict[str, Any]:
+        path = Endpoints.CHANGE_MARGIN_TYPE
+        method = HttpMethod.POST
+        signed = True
+        url = f"{Perpetual.BASE_URL}{path}"
+        data = None
+        params = {"symbol": symbol, "marginType": margin_type}
+
+        try:
+            request_data = RequestModel(
+                method=method,
+                login=signed,
+                url=url,
+                params=params if params else {},
+                data=data if data else {},
+            )
+
+            response = await self._make_request(request_data)
+
             return response
 
         except pydantic_core.ValidationError as e:
@@ -156,11 +207,12 @@ class Perpetual:
     ) -> Dict[str, Any]:
         params = params if params else {}
         params["timestamp"] = str(self.get_timestamp())
+        print(params)
         signature = self._get_sign(self._params_str(params))
         params["signature"] = signature
         return params
 
-    def _get_sign(self, params_str: str):
+    async def _get_sign(self, params_str: str):
         signature = hmac.new(
             self.secret_key.encode("utf-8"),
             params_str.encode("utf-8"),
@@ -168,13 +220,39 @@ class Perpetual:
         ).hexdigest()
         return signature
 
-    def get_timestamp(self) -> int:
-        return int(time.time() * 1_000)
-
-    def _params_str(self, params: Dict[str, Any]) -> str:
+    async def _params_str(self, params: Dict[str, Any]) -> str:
+        params["timestamp"] = str(self.get_timestamp())
         # Ordenar los parámetros para la firma
         sorted_params = dict(sorted(params.items()))
         params_str = urllib.parse.urlencode(
             sorted_params, safe='{}":,'
         )  # Mantener los caracteres de JSON seguros
         return params_str
+
+    def get_timestamp(self) -> int:
+        return int(time.time() * 1_000)
+
+    async def _make_request(
+            self, request_data: RequestModel, headers: Optional[Dict[str, Any]] = None
+    ) -> aiohttp.http.RESPONSES:
+
+        # Capturar Headers
+        headers = headers if headers else self.headers
+        # Pasamos a query string los parámetros
+        query_string = await self._params_str(params=request_data.params)
+
+        # Creamos la url completa tomando en cuenta si se necesita o no login
+        if request_data.login:
+            url = f"{request_data.url}?{query_string}&signature={await self._get_sign(query_string)}"
+        else:
+            url = f"{request_data.url}?{query_string}"
+
+        # hacemos petición
+        async with self.session.request(
+                request_data.method, url, headers=headers
+        ) as response:
+            if response.status != 200:
+                raise ValueError(
+                    f"API Error: {response.status} - {await response.text()}"
+                )
+            return await response.json()

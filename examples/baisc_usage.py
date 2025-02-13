@@ -28,3 +28,13 @@ async def get_klines(client: Perpetual, symbol: str, interval: str):
 async def account_data(client: Perpetual):
     acc_data = await client.account_data()
     print(acc_data)
+
+
+async def query_margin_type(client: Perpetual, symbol: str):
+    mar_ty = await client.query_margin_type(symbol=symbol)
+    print(f"Margin type para {symbol}: {mar_ty}")
+
+
+async def change_margin_type(client: Perpetual, symbol: str, margin_type: str):
+    resp = await client.change_margin_type(symbol=symbol, margin_type=margin_type)
+    print(f"Modificado el margin type para {symbol}: {resp}")
