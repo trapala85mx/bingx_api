@@ -291,7 +291,9 @@ class Perpetual:
         return int(time.time() * 1_000)
 
     async def _make_request(
-            self, request_data: RequestModel, headers: Optional[Dict[str, Any]] = None
+            self,
+            request_data: RequestModel,
+            headers: Optional[Dict[str, Any]] = None,
     ) -> aiohttp.http.RESPONSES:
         """
         Realiza la petición HTTP.
@@ -305,27 +307,33 @@ class Perpetual:
         Raises:
             HttpException: Cuando una petición no es exitosa. Es decir, no está en rango de los 2xx.
         """
-        # Revisar si viene params y data
-        params = request_data.params if request_data.params else {}
 
         # Capturar Headers
         headers = headers if headers else self.headers
+
+        # Obtenemos la url:
+        url = await self._build_url(
+            request_data=request_data,
+        )
+        # hacemos petición
+        async with self.session.request(
+                request_data.method, url, headers=headers
+        ) as response:
+            if not str(response.status).startswith("2"):
+                raise HttpException(
+                    f"HTTP Error: {response.status} - {await response.text()}"
+                )
+            return await response.json()
+
+    async def _build_url(self, request_data: RequestModel) -> str:
+        # Revisar si viene params
+        params = request_data.params if request_data.params else {}
         # Pasamos a query string los parámetros
         query_string = await self._params_str(params=params)
-
         # Creamos la url completa tomando en cuenta si se necesita o no login
         if request_data.login:
             url = f"{request_data.url}?{query_string}&signature={await self._get_sign(query_string)}"
         else:
             url = f"{request_data.url}?{query_string}"
 
-        # hacemos petición
-        async with self.session.request(
-                request_data.method, url, headers=headers
-        ) as response:
-
-            if not str(response.status).startswith("2"):
-                raise HttpException(
-                    f"HTTP Error: {response.status} - {await response.text()}"
-                )
-            return await response.json()
+        return url

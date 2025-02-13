@@ -19,31 +19,33 @@ class HttpManager:
         self.logger = logging.getLogger(__name__)
 
     async def make_request(
-        self, request_data: RequestModel, headers: Optional[Dict[str, Any]] = {}
-    ) -> Dict[str, Any]:
+            self,
+            request_data: RequestModel,
+            headers: Dict[str, Any],
+    ) -> Dict[str, Any] | None:
         """
         Se encarga de hacer la petición.
         Args:
             request_data (RequestModel): Datos para hacer una request.
-
+            headers (Optional[Dict[str,Any]]): Headers para la petición.
         Returns:
             Dict[str, Any]: Respuesta del servidor en forma de Diccionario.
         """
         try:
             session = await self._get_session()
             async with session.request(
-                method=request_data.method,
-                url=request_data.url,
-                params=request_data.params,
-                json=request_data.data,
-                headers=headers,
+                    method=request_data.method,
+                    url=request_data.url,
+                    params=request_data.params,
+                    json=request_data.data,
+                    headers=headers,
             ) as response:
                 await self._verify_response(response)
-                if response.status != 200:
-                    raise ValueError(
-                        f"API Error: {response.status} - {await response.text()}"
-                    )
 
+                if not str(response.status).startswith("2"):
+                    raise HttpException(
+                        f"HTTP Error: {response.status} - {await response.text()}"
+                    )
                 return await response.json()
 
         except HttpException as err:
@@ -51,16 +53,18 @@ class HttpManager:
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """
-        Obtiene la sesión para poder realizar peticiones.
+        Retorna una sesión.
+
         Returns:
-            aiohttp.ClientSession: Sesión para poder hacer peticiones.
+            aiohttp.ClientSession: Sessión para hacer peticiones.
         """
         if not self.session:
             self.session = aiohttp.ClientSession()
+
         return self.session
 
     async def _verify_response(
-        self, response: aiohttp.ClientResponse
+            self, response: aiohttp.ClientResponse
     ) -> aiohttp.ClientResponse:
         """
         Verifica el status code de la respuesta.
