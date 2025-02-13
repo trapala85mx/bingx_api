@@ -1,11 +1,15 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel
 
 
 class RequestModel(BaseModel):
+    """
+    Modelo de datos praa una petición.
+    """
+
     method: str
     url: str
-    params: Dict[str, Any]
-    data: Dict[str, Any]
     login: bool
+    params: Optional[Dict[str, Any]] = None
+    data: Optional[Dict[str, Any]] = None

@@ -1,7 +1,10 @@
 import asyncio
 
 from examples.baisc_usage import (
+    account_data,
+    change_margin_type,
     client_creation,
+    query_margin_type,
 )
 from src.exceptions.api_exceptions import ApiException
 
@@ -15,11 +18,11 @@ async def main():
         # await get_klines(
         #    client=client, symbol="BTC-USDT", interval=Intervals.KLINE_4_HOUR
         # )
-        # await account_data(client=client)
-        # await query_margin_type(client=client, symbol="BTC-USDT")
-        # await change_margin_type(
-        #    client=client, symbol="ETH-USDT", margin_type="CROSSED"
-        # )
+        await account_data(client=client)
+        await query_margin_type(client=client, symbol="BTC-USDT")
+        await change_margin_type(
+            client=client, symbol="ETH-USDT", margin_type="ISOLATED"
+        )
         await client.close()
 
     except ApiException as e:

@@ -32,25 +32,23 @@ class Perpetual:
     async def close(self):
         await self.session.close()
 
-    async def server_timestamp(self) -> int:
+    async def server_timestamp(self) -> Any | None:
         """
         Obtiene la hora desde el servidor.
+
         Returns (int): Timestamp del servidor.
+
+        Raises:
+            ApiException: Error dentro de la API.
         """
         endpoint = Endpoints.SERVER_TIMESTAMP
-        method = HttpMethod.GET
         url = f"{Perpetual.BASE_URL}{endpoint}"
-        signed = False
-        params = None
-        data = None
 
         try:
             request_data = RequestModel(
-                method=method,
+                method=HttpMethod.GET,
                 url=url,
-                params=params if params else {},
-                data=data if data else {},
-                login=signed,
+                login=False,
             )
 
             response = await self._make_request(request_data=request_data)
@@ -58,9 +56,12 @@ class Perpetual:
             return response["data"]["serverTime"]
 
         except pydantic_core.ValidationError as err:
-            self.logger.debug("Error al crear el RequestModel: %s", str(err))
+            self.logger.critical(
+                "Error de Pydantic al crear el RequestModel: %s", str(err)
+            )
+            raise ApiException(f"Error en Pydantic: {str(err)}") from err
 
-    async def contracts(self, symbol: Optional[str] = None) -> Dict[str, Any]:
+    async def contracts(self, symbol: Optional[str] = None) -> Dict[str, Any] | None:
         """
         Arma lo neceasrio para realizar la petición al endpoint para traer la información de los contratos
         Args:
@@ -68,39 +69,37 @@ class Perpetual:
 
         Returns:
             Dict[str,Any]: Respuesta del Servidor.
+
+        Raises:
+            ApiException: Error dentro de la API.
         """
         endpoint = Endpoints.CONTRACTS
-        method = HttpMethod.GET
         url = f"{Perpetual.BASE_URL}{endpoint}"
-        signed = False
         params = None
-        data = None
 
         if symbol:
             if len(symbol) > 0:
                 params["symbol"] = symbol
         try:
             request_data = RequestModel(
-                method=method,
+                method=HttpMethod.GET,
                 url=url,
-                params=params if params else {},
-                data=data if data else {},
-                login=signed,
+                login=False,
+                params=params,
             )
 
             response = await self._make_request(request_data=request_data)
 
             return response
         except pydantic_core.ValidationError as err:
-            self.logger.debug("Error al crear el RequestModel: %s", str(err))
+            self.logger.critical(
+                "Error de Pydantic al crear el RequestModel: %s", str(err)
+            )
+            raise ApiException(f"Error en Pydantic: {str(err)}") from err
 
     async def kline_data(self, symbol: str, interval: str, **kwargs) -> Dict[str, Any]:
         path = Endpoints.KLINES
-        method = HttpMethod.GET
-        signed = False
         url = f"{Perpetual.BASE_URL}{path}"
-
-        data = None
         params = {"symbol": symbol, "interval": interval}
         start = kwargs.get("start", None)
         end = kwargs.get("end", None)
@@ -112,61 +111,53 @@ class Perpetual:
 
         try:
             request_data = RequestModel(
-                method=method,
+                method=HttpMethod.GET,
                 url=url,
-                params=params if params else {},
-                data=data if data else {},
-                login=signed,
+                params=params,
+                login=False,
             )
 
             response = await self._make_request(request_data=request_data)
 
             return response
+
         except pydantic_core.ValidationError as err:
-            self.logger.debug("Error al crear el RequestModel: %s", str(err))
-            raise ApiException(str(err)) from err
+            self.logger.debug(
+                "Error de Pydantic al crear el RequestModel: %s", str(err)
+            )
+            raise ApiException(f"Error en Pydantic: {str(err)}") from err
 
     async def account_data(self) -> Dict[str, Any]:
-        method = HttpMethod.GET
         path = Endpoints.ACCOUNT
-        signed = True
-        data = None
-        params = None
         url = f"{Perpetual.BASE_URL}{path}"
 
         try:
             request_data = RequestModel(
-                method=method,
-                login=signed,
+                method=HttpMethod.GET,
+                login=True,
                 url=url,
-                params=params if params else {},
-                data=data if data else {},
             )
 
             response = await self._make_request(request_data)
-            await self.http_manager.close()
-
             return response
 
         except pydantic_core.ValidationError as e:
-            self.logger.debug("Error al crear el RequestModel: %s", str(e))
-            raise ApiException(str(e)) from e
+            self.logger.critical(
+                "Error de Pydantic al crear el RequestModel: %s", str(e)
+            )
+            raise ApiException(f"Error en Pydantic: {str(e)}") from e
 
     async def query_margin_type(self, symbol: str) -> Dict[str, Any]:
         path = Endpoints.QUERY_MARGIN_TYPE
-        method = HttpMethod.GET
-        signed = True
         url = f"{Perpetual.BASE_URL}{path}"
-        data = None
         params = {"symbol": symbol}
 
         try:
             request_data = RequestModel(
-                method=method,
-                login=signed,
+                method=HttpMethod.GET,
+                login=True,
                 url=url,
-                params=params if params else {},
-                data=data if data else {},
+                params=params,
             )
 
             response = await self._make_request(request_data)
@@ -174,24 +165,20 @@ class Perpetual:
             return response
 
         except pydantic_core.ValidationError as e:
-            self.logger.debug("Error al crear el RequestModel: %s", str(e))
-            raise ApiException(str(e)) from e
+            self.logger.debug("Error de Pydantic al crear el RequestModel: %s", str(e))
+            raise ApiException(f"Error en Pydantic: {str(e)}") from e
 
     async def change_margin_type(self, symbol: str, margin_type: str) -> Dict[str, Any]:
         path = Endpoints.CHANGE_MARGIN_TYPE
-        method = HttpMethod.POST
-        signed = True
         url = f"{Perpetual.BASE_URL}{path}"
-        data = None
         params = {"symbol": symbol, "marginType": margin_type}
 
         try:
             request_data = RequestModel(
-                method=method,
-                login=signed,
+                method=HttpMethod.POST,
+                login=True,
                 url=url,
-                params=params if params else {},
-                data=data if data else {},
+                params=params,
             )
 
             response = await self._make_request(request_data)
@@ -201,16 +188,6 @@ class Perpetual:
         except pydantic_core.ValidationError as e:
             self.logger.debug("Error al crear el RequestModel: %s", str(e))
             raise ApiException(str(e)) from e
-
-    async def _get_body_data(
-            self, params: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
-        params = params if params else {}
-        params["timestamp"] = str(self.get_timestamp())
-        print(params)
-        signature = self._get_sign(self._params_str(params))
-        params["signature"] = signature
-        return params
 
     async def _get_sign(self, params_str: str):
         signature = hmac.new(
@@ -235,11 +212,13 @@ class Perpetual:
     async def _make_request(
             self, request_data: RequestModel, headers: Optional[Dict[str, Any]] = None
     ) -> aiohttp.http.RESPONSES:
+        # Revisar si viene params y data
+        params = request_data.params if request_data.params else {}
 
         # Capturar Headers
         headers = headers if headers else self.headers
         # Pasamos a query string los parámetros
-        query_string = await self._params_str(params=request_data.params)
+        query_string = await self._params_str(params=params)
 
         # Creamos la url completa tomando en cuenta si se necesita o no login
         if request_data.login:
