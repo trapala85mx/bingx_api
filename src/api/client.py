@@ -9,6 +9,7 @@ import aiohttp.http
 import pydantic_core
 
 from src.exceptions.api_exceptions import ApiException
+from src.exceptions.http_exceptions import HttpException
 from src.models.request_model import RequestModel
 from src.utils.const import Endpoints, HttpMethod
 from src.utils.http_manager import HttpManager
@@ -98,6 +99,23 @@ class Perpetual:
             raise ApiException(f"Error en Pydantic: {str(err)}") from err
 
     async def kline_data(self, symbol: str, interval: str, **kwargs) -> Dict[str, Any]:
+        """
+        Obtiene los datos de las velas. Por default solo trae las 200 últimsa velas. La última vela aún no está
+        cerrada sino que es la que está corriendo.
+        Args:
+            symbol (str): Ticker symbol del activo.
+            interval (str): Temporalidad de la queremos la vela.
+            **kwargs:
+                start (int): Timestamp de la fecha inicial de la que queremos obtener las velas.
+                end (int): Timestamp de la fecha final de la que queremos obtener las velas.
+                limit (int): Cantidad de velas que queremos obtener. Máx:1,440
+
+        Returns:
+            (Dict[str,Any]): Respuesta del servidor en formato de diccionario.
+
+        Raises:
+            ApiException: Error dentro de la API.
+        """
         path = Endpoints.KLINES
         url = f"{Perpetual.BASE_URL}{path}"
         params = {"symbol": symbol, "interval": interval}
@@ -128,6 +146,15 @@ class Perpetual:
             raise ApiException(f"Error en Pydantic: {str(err)}") from err
 
     async def account_data(self) -> Dict[str, Any]:
+        """
+        Obtiene la información de la cuenta.
+
+        Returns:
+            (Dict[str,Any]): Respuesta del servidor en formato de diccionario.
+
+        Raises:
+            ApiException: Error dentro de la API.
+        """
         path = Endpoints.ACCOUNT
         url = f"{Perpetual.BASE_URL}{path}"
 
@@ -148,6 +175,17 @@ class Perpetual:
             raise ApiException(f"Error en Pydantic: {str(e)}") from e
 
     async def query_margin_type(self, symbol: str) -> Dict[str, Any]:
+        """
+        Obtiene el tipo de margen actual para un activo.
+        Args:
+            symbol (str): Ticker symbol del activo.
+
+        Returns:
+            (Dict[str,Any]): Respuesta del servidor en formato de diccionario.
+
+        Raises:
+            ApiException: Error dentro de la API.
+        """
         path = Endpoints.QUERY_MARGIN_TYPE
         url = f"{Perpetual.BASE_URL}{path}"
         params = {"symbol": symbol}
@@ -169,6 +207,18 @@ class Perpetual:
             raise ApiException(f"Error en Pydantic: {str(e)}") from e
 
     async def change_margin_type(self, symbol: str, margin_type: str) -> Dict[str, Any]:
+        """
+        Modifica el Margin Type para un activo.
+        Args:
+            symbol (str): Ticker symbol del activo.
+            margin_type (str): Tipo de margin type que deseamos para el activo.
+
+        Returns:
+            (Dict[str,Any]): Respuesta del servidor en formato de diccionario.
+
+        Raises:
+            ApiException: Error dentro de la API.
+        """
         path = Endpoints.CHANGE_MARGIN_TYPE
         url = f"{Perpetual.BASE_URL}{path}"
         params = {"symbol": symbol, "marginType": margin_type}
@@ -189,7 +239,18 @@ class Perpetual:
             self.logger.debug("Error al crear el RequestModel: %s", str(e))
             raise ApiException(str(e)) from e
 
-    async def _get_sign(self, params_str: str):
+    async def _get_sign(self, params_str: str) -> str:
+        """
+        Crea la singature de los peticiones que necesitan auth.
+        Args:
+            params_str (str): Query string a enviar en la URL.
+
+        Returns:
+            (str): Cadena de texto de la signature.
+
+        Raises:
+            ApiException: Error dentro de la API.
+        """
         signature = hmac.new(
             self.secret_key.encode("utf-8"),
             params_str.encode("utf-8"),
@@ -198,6 +259,17 @@ class Perpetual:
         return signature
 
     async def _params_str(self, params: Dict[str, Any]) -> str:
+        """
+        Convierte los parámetros en query string.
+        Args:
+            params (Dict[str, Any]): Parámetros de la petición.
+
+        Returns:
+            (str): Parámetros en cadena texto url encodeados.
+
+        Raises:
+            ApiException: Error dentro de la API.
+        """
         params["timestamp"] = str(self.get_timestamp())
         # Ordenar los parámetros para la firma
         sorted_params = dict(sorted(params.items()))
@@ -207,11 +279,32 @@ class Perpetual:
         return params_str
 
     def get_timestamp(self) -> int:
+        """
+        Obtiene el timestamp actual.
+
+        Returns:
+            (int): Entero que representa el timestamp.
+
+        Raises:
+            ApiException: Error dentro de la API.
+        """
         return int(time.time() * 1_000)
 
     async def _make_request(
             self, request_data: RequestModel, headers: Optional[Dict[str, Any]] = None
     ) -> aiohttp.http.RESPONSES:
+        """
+        Realiza la petición HTTP.
+        Args:
+            request_data (RequestModel): Datos de la petición en un modelo de datos de pydantic.
+            headers (Dict[str,Any]): Headers de la petición. Default: None.
+
+        Returns:
+            (aiohttp.http.RESPONSES): Response de la petición.
+
+        Raises:
+            HttpException: Cuando una petición no es exitosa. Es decir, no está en rango de los 2xx.
+        """
         # Revisar si viene params y data
         params = request_data.params if request_data.params else {}
 
@@ -230,8 +323,9 @@ class Perpetual:
         async with self.session.request(
                 request_data.method, url, headers=headers
         ) as response:
-            if response.status != 200:
-                raise ValueError(
-                    f"API Error: {response.status} - {await response.text()}"
+
+            if not str(response.status).startswith("2"):
+                raise HttpException(
+                    f"HTTP Error: {response.status} - {await response.text()}"
                 )
             return await response.json()
