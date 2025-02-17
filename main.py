@@ -25,14 +25,17 @@ async def api_basic_usage(client: Perpetual):
 
 
 async def main():
+    client = None
     try:
         client = await client_creation()
-        await websocket_usage()
+        await websocket_usage(client)
 
         while True:
             # Tiempo que dura la listen key
-            await asyncio.sleep(BingxLimits.LISTEN_KEY_RENEWAL_SECS.value - 600)
+            await asyncio.sleep(BingxLimits.LISTEN_KEY_RENEWAL_SECS.value)
             # Renovar listen key
+            await client.extend_listen_key()
+            print("Listen Key Extendida")
 
     except ApiException as e:
         print(f"{'*' * 50}")
@@ -44,6 +47,8 @@ async def main():
         # Cerrar clientes de API y/o Websocket
         # client.close()
         # ws_manager.close_all()
+        if client:
+            await client.delete_listen_key()
 
 
 if __name__ == "__main__":

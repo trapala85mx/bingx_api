@@ -1,6 +1,7 @@
 import asyncio
 from typing import Any, Dict, List
 
+from src.api.client import Perpetual
 from src.api.ws_manager import WebSocketManager
 from src.utils.const import Intervals, WsStreamTypes
 
@@ -8,9 +9,11 @@ queue_map: Dict[str, Any] = {}
 tasks: List[asyncio.Task] = []
 
 
-async def websocket_usage():
+async def websocket_usage(client: Perpetual):
     # Este se debe crear en el flujo principal, cada estrategia lo recibe
     ws_manager = WebSocketManager()
+    # Se genera la listen key
+    await client.get_listen_key()
     # Cada estrategia se inica para cada symbol
     await staregy_example(ws_manager=ws_manager)
 

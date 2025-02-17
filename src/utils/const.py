@@ -9,6 +9,9 @@ class Endpoints(StrEnum):
     CONTRACTS = "/openApi/swap/v2/quote/contracts"
     CHANGE_MARGIN_TYPE = "/openApi/swap/v2/trade/marginType"
     KLINES = "/openApi/swap/v3/quote/klines"
+    LISTEN_KEY_DELETE = "/openApi/user/auth/userDataStream"
+    LISTEN_KEY_EXTEND = "/openApi/user/auth/userDataStream"
+    LISTEN_KEY_POST = "/openApi/user/auth/userDataStream"
     PLACE_ORDER = "/openApi/swap/v2/trade/order"
     QUERY_MARGIN_TYPE = "/openApi/swap/v2/trade/marginType"
     SERVER_TIMESTAMP = "/openApi/swap/v2/server/time"
@@ -20,6 +23,8 @@ class HttpMethod(StrEnum):
 
     GET = "GET"
     POST = "POST"
+    DELETE = "DELETE"
+    PUT = "PUT"
 
 
 class Intervals(StrEnum):
@@ -69,7 +74,7 @@ class BingxLimits(Enum):
 
     MAX_WS_PER_IP = 50
     MAX_SUBS_PER_WS = 100
-    LISTEN_KEY_RENEWAL_SECS = 3600
+    LISTEN_KEY_RENEWAL_SECS = 1800
 
 
 class WsStreamTypes(StrEnum):

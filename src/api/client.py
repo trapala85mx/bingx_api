@@ -5,6 +5,7 @@ import aiohttp
 import pydantic_core
 
 from src.exceptions.api_exceptions import ApiException
+from src.exceptions.http_exceptions import HttpException
 from src.models.request_model import RequestModel
 from src.utils.auth import get_sign, params_str
 from src.utils.const import Endpoints, HttpMethod
@@ -24,6 +25,7 @@ class Perpetual:
         self.headers = {"X-BX-APIKEY": self.api_key}
         self.http_manager = HttpManager()
         self.logger = logging.getLogger(__name__)
+        self.listen_key = None
 
     async def close(self):
         await self.http_manager.close()
@@ -82,6 +84,8 @@ class Perpetual:
 
         if symbol:
             if len(symbol) > 0:
+                if params is None:
+                    params = {}
                 params["symbol"] = symbol
         try:
             request_data = RequestModel(
@@ -161,6 +165,102 @@ class Perpetual:
                 "Error de Pydantic al crear el RequestModel: %s", str(err)
             )
             raise ApiException(f"Error en Pydantic: {str(err)}") from err
+
+    async def get_listen_key(self) -> None:
+        path = Endpoints.LISTEN_KEY_POST
+        url = f"{Perpetual.BASE_URL}{path}"
+
+        try:
+            request_data = RequestModel(
+                method=HttpMethod.POST,
+                login=True,
+                url=url,
+            )
+            # Obtener url final
+            url = await self._build_url(request_data=request_data)
+            response = await self.http_manager.make_request(
+                method=request_data.method,
+                url=url,
+                headers=self.headers,
+            )
+
+            self.listen_key = response.get("listenKey")
+
+            if self.listen_key is None:
+                raise ValueError("No se obtuvo la Listen Key")
+
+        except pydantic_core.ValidationError as e:
+            self.logger.critical(
+                "Error de Pydantic al crear el RequestModel: %s", str(e)
+            )
+            raise ApiException(f"Error en Pydantic: {str(e)}") from e
+
+        except HttpException as e:
+            print(f"No se pudo obtener la ListenKey")
+            return
+
+    async def delete_listen_key(self) -> None:
+        path = Endpoints.LISTEN_KEY_POST
+        url = f"{Perpetual.BASE_URL}{path}"
+        params = {"listenKey": self.listen_key}
+        try:
+            request_data = RequestModel(
+                method=HttpMethod.DELETE,
+                login=True,
+                url=url,
+                params=params,
+            )
+            # Obtener url final
+            url = await self._build_url(request_data=request_data)
+
+            await self.http_manager.make_request(
+                method=request_data.method,
+                url=url,
+                headers=self.headers,
+            )
+
+            return
+
+        except pydantic_core.ValidationError as e:
+            self.logger.critical(
+                "Error de Pydantic al crear el RequestModel: %s", str(e)
+            )
+            raise ApiException(f"Error en Pydantic: {str(e)}") from e
+
+        except HttpException as e:
+            print(f"No se pudo eliminar la ListenKey")
+            return
+
+    async def extend_listen_key(self) -> None:
+        path = Endpoints.LISTEN_KEY_POST
+        url = f"{Perpetual.BASE_URL}{path}"
+        params = {"listenKey": self.listen_key}
+
+        try:
+            request_data = RequestModel(
+                method=HttpMethod.PUT,
+                login=True,
+                url=url,
+                params=params,
+            )
+            # Obtener url final
+            url = await self._build_url(request_data=request_data)
+
+            await self.http_manager.make_request(
+                method=request_data.method,
+                url=url,
+                headers=self.headers,
+            )
+
+        except pydantic_core.ValidationError as e:
+            self.logger.critical(
+                "Error de Pydantic al crear el RequestModel: %s", str(e)
+            )
+            raise ApiException(f"Error en Pydantic: {str(e)}") from e
+
+        except HttpException as e:
+            print(f"No se pudo extender la validez de la ListenKey")
+            return
 
     async def account_data(self) -> Dict[str, Any]:
         """
