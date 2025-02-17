@@ -1,11 +1,10 @@
 import logging
 from typing import Any, Dict, Optional
 
-import aiohttp.http
+import aiohttp
 import pydantic_core
 
 from src.exceptions.api_exceptions import ApiException
-from src.exceptions.http_exceptions import HttpException
 from src.models.request_model import RequestModel
 from src.utils.auth import get_sign, params_str
 from src.utils.const import Endpoints, HttpMethod
@@ -22,13 +21,12 @@ class Perpetual:
     ) -> None:
         self.api_key = api_key
         self.secret_key = secret
-        self.session = aiohttp.ClientSession()
         self.headers = {"X-BX-APIKEY": self.api_key}
         self.http_manager = HttpManager()
         self.logger = logging.getLogger(__name__)
 
     async def close(self):
-        await self.session.close()
+        await self.http_manager.close()
 
     async def server_timestamp(self) -> Any | None:
         """
@@ -49,9 +47,16 @@ class Perpetual:
                 login=False,
             )
 
-            response = await self._make_request(request_data=request_data)
+            # Obtenemos la url final:
+            url = await self._build_url(request_data=request_data)
 
-            return response["data"]["serverTime"]
+            response = await self.http_manager.make_request(
+                method=request_data.method,
+                url=url,
+                headers=self.headers,
+            )
+
+            return await Perpetual._verify_response(response=response)
 
         except pydantic_core.ValidationError as err:
             self.logger.critical(
@@ -86,9 +91,17 @@ class Perpetual:
                 params=params,
             )
 
-            response = await self._make_request(request_data=request_data)
+            # Obtenemos la url final:
+            url = await self._build_url(request_data=request_data)
 
-            return response
+            response = await self.http_manager.make_request(
+                method=request_data.method,
+                url=url,
+                headers=self.headers,
+            )
+
+            return await Perpetual._verify_response(response=response)
+
         except pydantic_core.ValidationError as err:
             self.logger.critical(
                 "Error de Pydantic al crear el RequestModel: %s", str(err)
@@ -132,9 +145,16 @@ class Perpetual:
                 login=False,
             )
 
-            response = await self._make_request(request_data=request_data)
+            # Obtenemos la url final:
+            url = await self._build_url(request_data=request_data)
 
-            return response
+            response = await self.http_manager.make_request(
+                method=request_data.method,
+                url=url,
+                headers=self.headers,
+            )
+
+            return await Perpetual._verify_response(response=response)
 
         except pydantic_core.ValidationError as err:
             self.logger.debug(
@@ -162,8 +182,16 @@ class Perpetual:
                 url=url,
             )
 
-            response = await self._make_request(request_data)
-            return response
+            # Obtenemos la url final:
+            url = await self._build_url(request_data=request_data)
+
+            response = await self.http_manager.make_request(
+                method=request_data.method,
+                url=url,
+                headers=self.headers,
+            )
+
+            return await Perpetual._verify_response(response=response)
 
         except pydantic_core.ValidationError as e:
             self.logger.critical(
@@ -195,9 +223,16 @@ class Perpetual:
                 params=params,
             )
 
-            response = await self._make_request(request_data)
+            # Obtenemos la url final:
+            url = await self._build_url(request_data=request_data)
 
-            return response
+            response = await self.http_manager.make_request(
+                method=request_data.method,
+                url=url,
+                headers=self.headers,
+            )
+
+            return await Perpetual._verify_response(response=response)
 
         except pydantic_core.ValidationError as e:
             self.logger.debug("Error de Pydantic al crear el RequestModel: %s", str(e))
@@ -228,48 +263,20 @@ class Perpetual:
                 params=params,
             )
 
-            response = await self._make_request(request_data)
+            # Obtenemos la url final:
+            url = await self._build_url(request_data=request_data)
 
-            return response
+            response = await self.http_manager.make_request(
+                method=request_data.method,
+                url=url,
+                headers=self.headers,
+            )
+
+            return await Perpetual._verify_response(response=response)
 
         except pydantic_core.ValidationError as e:
             self.logger.debug("Error al crear el RequestModel: %s", str(e))
             raise ApiException(str(e)) from e
-
-    async def _make_request(
-            self,
-            request_data: RequestModel,
-            headers: Optional[Dict[str, Any]] = None,
-    ) -> aiohttp.http.RESPONSES:
-        """
-        Realiza la petición HTTP.
-        Args:
-            request_data (RequestModel): Datos de la petición en un modelo de datos de pydantic.
-            headers (Dict[str,Any]): Headers de la petición. Default: None.
-
-        Returns:
-            (aiohttp.http.RESPONSES): Response de la petición.
-
-        Raises:
-            HttpException: Cuando una petición no es exitosa. Es decir, no está en rango de los 2xx.
-        """
-
-        # Capturar Headers
-        headers = headers if headers else self.headers
-
-        # Obtenemos la url:
-        url = await self._build_url(
-            request_data=request_data,
-        )
-        # hacemos petición
-        async with self.session.request(
-                request_data.method, url, headers=headers
-        ) as response:
-            if not str(response.status).startswith("2"):
-                raise HttpException(
-                    f"HTTP Error: {response.status} - {await response.text()}"
-                )
-            return await response.json()
 
     async def _build_url(self, request_data: RequestModel) -> str:
         # Revisar si viene params
@@ -283,3 +290,24 @@ class Perpetual:
             url = f"{request_data.url}?{query_string}"
 
         return url
+
+    @staticmethod
+    async def _verify_response(response: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Verifica el status code de la respuesta.
+        Args:
+            response (aiohttp.ClientResponse): Respuesta del Servidor.
+
+        Returns:
+            aiohttp.ClientResponse: Respuesta obtenida del Servidor.
+
+        Raises:
+            HttpException: Excepción de tipo HTTP derivado de un status code distinto de 2XX.
+        """
+        code = response.get("code", None)
+        msg = response.get("msg", None)
+
+        if code == 0:
+            return response
+
+        raise ApiException(f"Error en data recibida; Status Code: {code}; Msg: {msg}")
