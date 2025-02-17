@@ -1,4 +1,4 @@
-from enum import StrEnum
+from enum import Enum, StrEnum
 
 
 class Endpoints(StrEnum):
@@ -12,6 +12,14 @@ class Endpoints(StrEnum):
     PLACE_ORDER = "/openApi/swap/v2/trade/order"
     QUERY_MARGIN_TYPE = "/openApi/swap/v2/trade/marginType"
     SERVER_TIMESTAMP = "/openApi/swap/v2/server/time"
+    WS_URL = "wss://open-api-swap.bingx.com/swap-market"
+
+
+class HttpMethod(StrEnum):
+    """Constantes de métodos HTTP"""
+
+    GET = "GET"
+    POST = "POST"
 
 
 class Intervals(StrEnum):
@@ -26,11 +34,11 @@ class Intervals(StrEnum):
     KLINE_1_WEEK = "1w"
 
 
-class HttpMethod(StrEnum):
-    """Constantes de métodos HTTP"""
+class MarginType(StrEnum):
+    """Tipo de marge"""
 
-    GET = "GET"
-    POST = "POST"
+    ISOLATED = "ISOLATED"
+    CROSSED = "CROSSED"
 
 
 class OrderType(StrEnum):
@@ -56,8 +64,13 @@ class PositionSide(StrEnum):
     SHORT = "SHORT"
 
 
-class MarginType(StrEnum):
-    """Tipo de marge"""
+class BingxLimits(Enum):
+    """Límites de la API de Bingx"""
 
-    ISOLATED = "ISOLATED"
-    CROSSED = "CROSSED"
+    MAX_WS_PER_IP = 50
+    MAX_SUBS_PER_WS = 100
+    LISTEN_KEY_RENEWAL_SECS = 3600
+
+
+class WsStreamTypes(StrEnum):
+    KLINES_STREAM = "KLINES"
