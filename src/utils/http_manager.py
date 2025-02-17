@@ -4,12 +4,11 @@ y elevar errroes HTTP si corresponde
 """
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import aiohttp
 
 from src.exceptions.http_exceptions import HttpException
-from src.models.request_model import RequestModel
 
 
 class HttpManager:
@@ -19,68 +18,45 @@ class HttpManager:
         self.logger = logging.getLogger(__name__)
 
     async def make_request(
-        self, request_data: RequestModel, headers: Optional[Dict[str, Any]] = {}
-    ) -> Dict[str, Any]:
+            self,
+            method: str,
+            url: str,
+            headers: Dict[str, Any],
+    ) -> aiohttp.http.RESPONSES:
         """
-        Se encarga de hacer la petición.
+        Realiza una petición HTTP.
         Args:
-            request_data (RequestModel): Datos para hacer una request.
+            method (str): Tipo de petición HTTP para la petición.
+            url (str): URL final siguiendo instrucciones para envío de data mediante query string.
+            headers (Dict[str,Any]]): Headers para la petición.
 
         Returns:
-            Dict[str, Any]: Respuesta del servidor en forma de Diccionario.
+            Dict[str,Any]: Response de la petición den formato de Diccionario.
+
+        Raises:
+            HttpException: Error de tipo HTTP indicando una respuesta no exitosa.
         """
-        try:
-            session = await self._get_session()
-            async with session.request(
-                method=request_data.method,
-                url=request_data.url,
-                params=request_data.params,
-                json=request_data.data,
-                headers=headers,
-            ) as response:
-                await self._verify_response(response)
-                if response.status != 200:
-                    raise ValueError(
-                        f"API Error: {response.status} - {await response.text()}"
-                    )
+        session = await self._get_session()
 
-                return await response.json()
-
-        except HttpException as err:
-            print(err)
+        # hacemos petición
+        async with session.request(method=method, url=url, headers=headers) as response:
+            if not str(response.status).startswith("2"):
+                raise HttpException(
+                    f"HTTP Error: {response.status} - {await response.text()}"
+                )
+            return await response.json()
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """
-        Obtiene la sesión para poder realizar peticiones.
+        Retorna una sesión.
+
         Returns:
-            aiohttp.ClientSession: Sesión para poder hacer peticiones.
+            aiohttp.ClientSession: Sessión para hacer peticiones.
         """
         if not self.session:
             self.session = aiohttp.ClientSession()
+
         return self.session
-
-    async def _verify_response(
-        self, response: aiohttp.ClientResponse
-    ) -> aiohttp.ClientResponse:
-        """
-        Verifica el status code de la respuesta.
-        Args:
-            response (aiohttp.ClientResponse): Respuesta del Servidor.
-
-        Returns:
-            aiohttp.ClientResponse: Respuesta obtenida del Servidor.
-
-        Raises:
-            HttpException: Excepción de tipo HTTP derivado de un status code distinto de 2XX.
-        """
-        status_code = response.status
-
-        if str(status_code).startswith("2"):
-            return response
-
-        raise HttpException(
-            f"Error en Petición a: {response.url}: Status Code: {status_code}"
-        )
 
     async def close(self) -> None:
         """
