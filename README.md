@@ -31,6 +31,7 @@ Ya clonado elimine el .gitignore, REAMDE.md y el main.py. Con esto muevo a la ra
 Posterior, se modifica el nombre del proyecto dentro del "pyproject.toml" y se sincriniza con "uv sync" para que se actualice con la info del "pyproject.toml".
 
 Se activa el entorno virtual.
+
 ---
 This project uses the "uv" library (https://docs.astral.sh/uv/getting-started/installation/) as a virutal environment manager.
 
